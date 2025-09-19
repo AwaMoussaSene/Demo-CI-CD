@@ -34,3 +34,6 @@ jobs:
           docker push ${{ secrets.DOCKER_USERNAME }}/demo-ci-cd:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/demo-ci-cd:${{ github.sha }}
 
+      # 5. Déclencher Render Deploy
+      - name: Deploy on Render
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
