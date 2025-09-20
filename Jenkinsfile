@@ -1,98 +1,62 @@
 pipeline {
     agent any
 
-    options {
-        timestamps()
-    }
-
-    triggers {
-        githubPush() // Déclenchement automatique sur push GitHub
-    }
-
     stages {
-        stage("Checkout") {
+        stage('Checkout SCM') {
             steps {
-                echo "📥 Récupération du code source..."
                 checkout scm
             }
         }
 
-        stage("Verify Docker") {
-            steps {
-                echo "🔍 Vérification du daemon Docker..."
-                bat """
-                    docker info || (
-                        echo Docker daemon non disponible
-                        exit 1
-                    )
-                """
-            }
-        }
-
-        stage("Build & Push Docker Image") {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    // Tag sécurisé basé sur la branche ou master
-                    def src = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master')
-                    def safeTag = src.replaceAll('[^A-Za-z0-9._-]', '-')
+                    // Construire l'image Docker
+                    sh 'docker build -t awamousene/demo-ci-cd:origin-master-6 .'
+                }
+            }
+        }
 
-                    // 🔹 Ici le nom du repository Docker corrigé
-                    def imageName = "awamousene/demo-ci-cd"
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    // Push image avec tag
+                    sh 'docker tag awamousene/demo-ci-cd:origin-master-6 awamousene/demo-ci-cd:latest'
+                    sh 'docker push awamousene/demo-ci-cd:origin-master-6'
+                    sh 'docker push awamousene/demo-ci-cd:latest'
+                }
+            }
+        }
 
-                    def imageTag = "${imageName}:${safeTag}-${env.BUILD_NUMBER}"
-                    def latestImageTag = "${imageName}:latest"
+        stage('Deploy to Render') {
+            steps {
+                script {
+                    // Déclencher le Deploy Hook Render
+                    def deployHook = 'https://api.render.com/deploy/srv-d34nve0dl3ps73822cbg?key=Js3I0NRGXSU'
+                    sh "curl -X POST $deployHook"
 
-                    echo "🐳 Construction de l'image Docker: ${imageTag}"
+                    // URL de ton application Render
+                    def appUrl = 'https://nom-de-ton-app.onrender.com'
 
-                    // Build l'image
-                    bat "docker build -t ${imageTag} ."
-
-                    // Login Docker Hub avec les credentials Jenkins
-                    withCredentials([usernamePassword(credentialsId: 'java-dockerhub-creds',
-                                                      usernameVariable: 'DOCKERHUB_USR',
-                                                      passwordVariable: 'DOCKERHUB_PSW')]) {
-                        bat 'echo %DOCKERHUB_PSW% | docker login -u %DOCKERHUB_USR% --password-stdin'
+                    // Boucle pour attendre que l'application soit disponible
+                    timeout(time: 2, unit: 'MINUTES') {
+                        waitUntil {
+                            def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' $appUrl", returnStdout: true).trim()
+                            echo "HTTP status: $response"
+                            return (response == '200')
+                        }
                     }
-
-                    // Push des tags
-                    bat "docker push ${imageTag}"
-                    bat "docker tag ${imageTag} ${latestImageTag}"
-                    bat "docker push ${latestImageTag}"
-
-                    echo "✅ Image Docker construite et publiée avec succès."
-                }
-            }
-        }
-
-        stage("Deploy to Render") {
-            steps {
-                echo "🚀 Déclenchement du déploiement sur Render..."
-                withCredentials([string(credentialsId: 'java-render-webhook', variable: 'HOOK_URL')]) {
-                    bat 'curl -i -X POST "%HOOK_URL%"'
-                }
-                echo "✅ Déploiement déclenché."
-            }
-        }
-
-        stage("Verify Application (optionnel)") {
-            steps {
-                withCredentials([string(credentialsId: 'java-render-app-url', variable: 'APP_URL')]) {
-                    bat 'curl -I "%APP_URL%" || echo "⚠️ Impossible de contacter l’application"'
                 }
             }
         }
     }
 
     post {
-        always {
-            cleanWs()
-            echo "✨ Pipeline terminé."
-        }
         success {
-            echo "🎉 Succès: Le pipeline s'est terminé avec succès!"
+            echo 'Déploiement terminé avec succès ! 🎉'
         }
         failure {
-            echo "❌ Échec: Le pipeline a échoué."
+            echo 'Le déploiement a échoué... ❌'
         }
     }
 }
