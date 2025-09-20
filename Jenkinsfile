@@ -26,7 +26,7 @@ pipeline {
         stage("Verify Docker") {
             steps {
                 echo "🔍 Vérification du daemon Docker..."
-                sh """
+                bat """
                     docker info || (
                         echo Docker daemon non disponible
                         exit 1
@@ -46,17 +46,17 @@ pipeline {
                     echo "🐳 Construction de l'image Docker: ${imageTag}"
 
                     // Build l'image
-                    sh "docker build -t ${imageTag} ."
+                    bat "docker build -t ${imageTag} ."
 
                     // Login Docker Hub
-                    sh """
+                    bat """
                         echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
                     """
 
                     // Push des tags
-                    sh "docker push ${imageTag}"
-                    sh "docker tag ${imageTag} ${latestImageTag}"
-                    sh "docker push ${latestImageTag}"
+                    bat "docker push ${imageTag}"
+                    bat "docker tag ${imageTag} ${latestImageTag}"
+                    bat "docker push ${latestImageTag}"
 
                     echo "✅ Image Docker construite et publiée avec succès."
                 }
@@ -67,7 +67,7 @@ pipeline {
             steps {
                 echo "🚀 Déclenchement du déploiement sur Render..."
                 withCredentials([string(credentialsId: 'java-render-webhook', variable: 'HOOK_URL')]) {
-                    sh "curl -i -X POST \"${HOOK_URL}\""
+                    bat "curl -i -X POST \"${HOOK_URL}\""
                 }
                 echo "✅ Déploiement déclenché."
             }
@@ -76,7 +76,7 @@ pipeline {
         stage("Vérifier Application (optionnel)") {
             steps {
                 withCredentials([string(credentialsId: 'java-render-app-url', variable: 'APP_URL')]) {
-                    sh "curl -I \"${APP_URL}\" || echo '⚠️ Impossible de contacter l’application'"
+                    bat "curl -I \"${APP_URL}\" || echo '⚠️ Impossible de contacter l’application'"
                 }
             }
         }
