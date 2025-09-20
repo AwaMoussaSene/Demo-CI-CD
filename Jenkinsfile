@@ -1,46 +1,45 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_IMAGE = "awamousene/demo-ci-cd"
+        DOCKER_TAG = "origin-master-6"
+    }
+
     stages {
         stage('Checkout SCM') {
             steps {
-                checkout scm
+                git url: 'https://github.com/AwaMoussaSene/Demo-CI-CD.git', branch: 'master'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    bat 'docker build -t awamousene/demo-ci-cd:origin-master-6 .'
-                }
+                bat """
+                docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% .
+                docker tag %DOCKER_IMAGE%:%DOCKER_TAG% %DOCKER_IMAGE%:latest
+                """
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                script {
-                    bat 'docker tag awamousene/demo-ci-cd:origin-master-6 awamousene/demo-ci-cd:latest'
-                    bat 'docker push awamousene/demo-ci-cd:origin-master-6'
-                    bat 'docker push awamousene/demo-ci-cd:latest'
-                }
+                bat """
+                docker push %DOCKER_IMAGE%:%DOCKER_TAG%
+                docker push %DOCKER_IMAGE%:latest
+                """
             }
         }
 
         stage('Deploy to Render') {
             steps {
-                script {
-                    def deployHook = 'https://api.render.com/deploy/srv-d34nve0dl3ps73822cbg?key=Js3I0NRGXSU'
-                    bat "curl -X POST %deployHook%"
-
-                    def appUrl = 'https://nom-de-ton-app.onrender.com'
-
-                    timeout(time: 2, unit: 'MINUTES') {
-                        waitUntil {
-                            def response = bat(script: "curl -s -o NUL -w %%{http_code} %appUrl%", returnStdout: true).trim()
-                            echo "HTTP status: $response"
-                            return (response == '200')
-                        }
-                    }
+                withCredentials([
+                    string(credentialsId: 'java-render-webhook', variable: 'RENDER_WEBHOOK'),
+                    string(credentialsId: 'java-render-app-url', variable: 'RENDER_APP_URL')
+                ]) {
+                    echo "Déploiement sur Render..."
+                    bat "curl -X POST \"%RENDER_WEBHOOK%\""
+                    echo "App URL: %RENDER_APP_URL%"
                 }
             }
         }
@@ -48,10 +47,10 @@ pipeline {
 
     post {
         success {
-            echo 'Déploiement terminé avec succès ! 🎉'
+            echo "Pipeline terminé avec succès ✅"
         }
         failure {
-            echo 'Le déploiement a échoué... ❌'
+            echo "Le déploiement a échoué... ❌"
         }
     }
 }
