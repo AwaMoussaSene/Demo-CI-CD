@@ -35,7 +35,10 @@ pipeline {
                     // Tag sécurisé basé sur la branche ou master
                     def src = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master')
                     def safeTag = src.replaceAll('[^A-Za-z0-9._-]', '-')
-                    def imageName = "awamoussasene/demo-ci-cd-java"
+
+                    // 🔹 Ici le nom du repository Docker corrigé
+                    def imageName = "awamousene/demo-ci-cd"
+
                     def imageTag = "${imageName}:${safeTag}-${env.BUILD_NUMBER}"
                     def latestImageTag = "${imageName}:latest"
 
