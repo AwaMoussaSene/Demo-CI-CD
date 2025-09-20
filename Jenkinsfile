@@ -38,7 +38,7 @@ pipeline {
         stage("Build & Push Docker Image") {
             steps {
                 script {
-                    def src = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
+                    def src = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master')
                     def safeTag = src.replaceAll('[^A-Za-z0-9._-]', '-')
                     def imageTag = "${IMAGE_NAME}:${safeTag}-${env.BUILD_NUMBER}"
                     def latestImageTag = "${IMAGE_NAME}:latest"
